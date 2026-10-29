@@ -1,0 +1,68 @@
+{
+  "settings": {
+    "shopName": "Chamundeshwari Provision Store",
+    "theme": "light"
+  },
+  "transactions": [
+    {
+      "id": "tx-101",
+      "customerName": "Aarav Sharma",
+      "phone": "9845012345",
+      "type": "CREDIT",
+      "paymentMode": "UPI",
+      "amount": 845,
+      "expression": "450 + 275 + 120",
+      "itemCount": 3,
+      "note": "Groceries & Basmati Rice",
+      "timestamp": "2026-10-29 11:45 AM"
+    },
+    {
+      "id": "tx-102",
+      "customerName": "Priya Nair",
+      "phone": "9901234567",
+      "type": "DEBIT",
+      "paymentMode": "Cash",
+      "amount": 320,
+      "expression": "180 + 140",
+      "itemCount": 2,
+      "note": "Monthly Dairy Udhaar",
+      "timestamp": "2026-10-29 10:30 AM"
+    },
+    {
+      "id": "tx-103",
+      "customerName": "Rohan Gowda",
+      "phone": "9731122334",
+      "type": "CREDIT",
+      "paymentMode": "Card",
+      "amount": 1450,
+      "expression": "1200 + 250",
+      "itemCount": 2,
+      "note": "Cooking Oil & Dry Fruits",
+      "timestamp": "2026-10-29 09:50 AM"
+    },
+    {
+      "id": "tx-104",
+      "customerName": "Aarav Sharma",
+      "phone": "9845012345",
+      "type": "DEBIT",
+      "paymentMode": "UPI",
+      "amount": 150,
+      "expression": "150",
+      "itemCount": 1,
+      "note": "Balance Carry Forward",
+      "timestamp": "2026-10-28 07:15 PM"
+    },
+    {
+      "id": "tx-105",
+      "customerName": "Ananya Rao",
+      "phone": "9448055667",
+      "type": "CREDIT",
+      "paymentMode": "Cash",
+      "amount": 560,
+      "expression": "220 + 190 + 150",
+      "itemCount": 3,
+      "note": "Snacks & Beverages",
+      "timestamp": "2026-10-28 05:40 PM"
+    }
+  ]
+}

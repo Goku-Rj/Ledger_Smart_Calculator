@@ -1,0 +1,27 @@
+{
+  "name": "smart-pos-ledger-calculator",
+  "version": "1.0.0",
+  "description": "Full-stack Smart POS & Customer Ledger Calculator with UPI/Cash/Card tracking, Credit/Debit ledger, custom Shop Name receipts, and multi-theme UI.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
+  },
+  "keywords": [
+    "pos",
+    "calculator",
+    "khata",
+    "customer-ledger",
+    "upi",
+    "billing"
+  ],
+  "license": "MIT"
+}

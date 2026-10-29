@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  smart-pos-ledger:
+    build: .
+    container_name: smart-pos-ledger
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - NODE_ENV=production
+      - DATA_DIR=/app/data
+    volumes:
+      - pos_ledger_data:/app/data
+
+volumes:
+  pos_ledger_data:
