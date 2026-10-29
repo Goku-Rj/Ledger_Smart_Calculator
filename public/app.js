@@ -152,8 +152,11 @@
       ];
 
       // --- APPLICATION STATE ---
+      const STORAGE_SHOP_ADDR_KEY = 'smart_pos_ledger_shop_addr_v1';
+
       let state = {
         shopName: 'Chamundeshwari Provision Store',
+        shopAddress: 'Mysuru • Ph: 9845011223',
         activePage: 'CALC', // 'CALC' or 'HISTORY'
         theme: 'light',
         soundEnabled: true,
@@ -162,9 +165,11 @@
         lastEvaluatedExpr: '',
         paymentMode: 'UPI',
         viewMode: 'FEED', // 'FEED' or 'CUSTOMERS'
+        filterDate: 'ALL', // 'ALL', 'TODAY', 'PENDING_KHATA'
         filterType: 'ALL',
         filterPay: 'ALL',
         searchQuery: '',
+        currentReceiptTxId: null,
         transactions: []
       };
 
@@ -174,6 +179,10 @@
           const savedShop = localStorage.getItem(STORAGE_SHOP_KEY);
           if (savedShop && savedShop.trim()) {
             state.shopName = savedShop.trim();
+          }
+          const savedAddr = localStorage.getItem(STORAGE_SHOP_ADDR_KEY);
+          if (savedAddr !== null) {
+            state.shopAddress = savedAddr;
           }
           const savedTheme = localStorage.getItem(STORAGE_THEME_KEY);
           if (savedTheme && ['light', 'dark', 'retro', 'cyber'].includes(savedTheme)) {
@@ -214,6 +223,7 @@
         try {
           localStorage.setItem(STORAGE_SHOP_KEY, state.shopName);
           pushSettingsToBackend();
+          localStorage.setItem(STORAGE_SHOP_ADDR_KEY, state.shopAddress || '');
         } catch (err) {
           // Ignore storage errors
         }
@@ -291,7 +301,16 @@
 
       // --- DOM REFERENCES ---
       const shopNameInput = document.getElementById('shopNameInput');
+      const shopAddressInput = document.getElementById('shopAddressInput');
       const headerShopNameDisplay = document.getElementById('headerShopNameDisplay');
+      const leftCustomerKhataText = document.getElementById('leftCustomerKhataText');
+      const viewSelectedCustomerHistoryBtn = document.getElementById('viewSelectedCustomerHistoryBtn');
+      const modeSplitPercentText = document.getElementById('modeSplitPercentText');
+      const barUpiWidth = document.getElementById('barUpiWidth');
+      const barCashWidth = document.getElementById('barCashWidth');
+      const barCardWidth = document.getElementById('barCardWidth');
+      const khataDirectorySummaryHint = document.getElementById('khataDirectorySummaryHint');
+      const whatsappReceiptBtn = document.getElementById('whatsappReceiptBtn');
       const pageCalculatorView = document.getElementById('pageCalculatorView');
       const pageHistoryView = document.getElementById('pageHistoryView');
       const navCalcPageBtn = document.getElementById('navCalcPageBtn');
@@ -387,6 +406,46 @@
         headerShopNameDisplay.textContent = displayTitle;
         if (document.activeElement !== shopNameInput) {
           shopNameInput.value = state.shopName;
+        }
+        if (shopAddressInput && document.activeElement !== shopAddressInput) {
+          shopAddressInput.value = state.shopAddress || '';
+        }
+      }
+
+      function updateLeftCustomerKhataPreview() {
+        const cName = customerNameInput.value.trim().toLowerCase();
+        const cPhone = customerPhoneInput.value.trim();
+        if (!cName && !cPhone) {
+          leftCustomerKhataText.textContent = 'Select or type customer to view balance';
+          leftCustomerKhataText.className = 'text-xs font-bold mt-0.5';
+          return;
+        }
+        const matches = state.transactions.filter((tx) => {
+          if (cPhone && cPhone.length >= 4 && tx.phone === cPhone) return true;
+          if (cName && tx.customerName.toLowerCase() === cName) return true;
+          return false;
+        });
+        if (matches.length === 0) {
+          leftCustomerKhataText.textContent = 'New Customer (No prior Khata history)';
+          leftCustomerKhataText.className = 'text-xs font-bold mt-0.5 text-sky-500';
+          return;
+        }
+        let cred = 0;
+        let deb = 0;
+        matches.forEach((m) => {
+          if (m.type === 'CREDIT') cred += Number(m.amount) || 0;
+          else deb += Number(m.amount) || 0;
+        });
+        const net = cred - deb;
+        if (net < 0) {
+          leftCustomerKhataText.textContent = `Udhaar Due: −₹${formatINR(Math.abs(net))} (${matches.length} bills)`;
+          leftCustomerKhataText.className = 'text-xs font-bold mt-0.5 text-rose-500';
+        } else if (net > 0) {
+          leftCustomerKhataText.textContent = `Net Paid/Advance: +₹${formatINR(net)} (${matches.length} bills)`;
+          leftCustomerKhataText.className = 'text-xs font-bold mt-0.5 text-emerald-500';
+        } else {
+          leftCustomerKhataText.textContent = `Account Settled: ₹0 (${matches.length} bills)`;
+          leftCustomerKhataText.className = 'text-xs font-bold mt-0.5 text-emerald-500';
         }
       }
 
@@ -484,6 +543,7 @@
         } else {
           customerStatusPreview.textContent = 'Walk-in / Enter customer above';
         }
+        updateLeftCustomerKhataPreview();
       }
 
       function handleCalculatorInput(key) {
@@ -704,11 +764,32 @@
       }
 
       // --- FILTERED TRANSACTIONS HELPER ---
+      function getCustomerNetMap() {
+        const netMap = new Map();
+        state.transactions.forEach((tx) => {
+          const key = tx.phone !== '—' ? tx.phone : tx.customerName.toLowerCase();
+          const cur = netMap.get(key) || 0;
+          const delta = tx.type === 'CREDIT' ? (Number(tx.amount) || 0) : -(Number(tx.amount) || 0);
+          netMap.set(key, cur + delta);
+        });
+        return netMap;
+      }
+
       function getFilteredTransactions() {
         const q = state.searchQuery.trim().toLowerCase();
+        const netMap = state.filterDate === 'PENDING_KHATA' ? getCustomerNetMap() : null;
+        const todayStr = new Date().toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: '2-digit' });
+
         return state.transactions.filter((tx) => {
           if (state.filterType !== 'ALL' && tx.type !== state.filterType) return false;
           if (state.filterPay !== 'ALL' && tx.paymentMode !== state.filterPay) return false;
+          if (state.filterDate === 'TODAY') {
+            const isToday = tx.timestamp.includes('2026-10-29') || tx.timestamp.includes(todayStr);
+            if (!isToday) return false;
+          } else if (state.filterDate === 'PENDING_KHATA' && netMap) {
+            const key = tx.phone !== '—' ? tx.phone : tx.customerName.toLowerCase();
+            if ((netMap.get(key) || 0) >= 0) return false;
+          }
           if (q) {
             const hay = `${tx.customerName} ${tx.phone} ${tx.note} ${tx.paymentMode}`.toLowerCase();
             if (!hay.includes(q)) return false;
@@ -759,6 +840,18 @@
 
         summaryTotalCollectionVal.textContent = `₹${formatINR(totalCredit)}`;
         collectionBreakdownText.textContent = `UPI: ₹${formatINR(upiCollection)} • Cash: ₹${formatINR(cashCollection)} • Card: ₹${formatINR(cardCollection)}`;
+
+        const denom = totalCredit > 0 ? totalCredit : 1;
+        const upiPct = totalCredit > 0 ? Math.round((upiCollection / denom) * 100) : 0;
+        const cashPct = totalCredit > 0 ? Math.round((cashCollection / denom) * 100) : 0;
+        const cardPct = totalCredit > 0 ? Math.max(0, 100 - upiPct - cashPct) : 0;
+        modeSplitPercentText.textContent = `UPI ${upiPct}% • Cash ${cashPct}% • Card ${cardPct}%`;
+        barUpiWidth.style.width = `${upiPct}%`;
+        barCashWidth.style.width = `${cashPct}%`;
+        barCardWidth.style.width = `${cardPct}%`;
+
+        const uniqueCustCount = new Set(filtered.map((t) => t.phone !== '—' ? t.phone : t.customerName.toLowerCase())).size;
+        khataDirectorySummaryHint.textContent = `${uniqueCustCount} ${uniqueCustCount === 1 ? 'Customer' : 'Customers'} • ${filtered.length} ${filtered.length === 1 ? 'Transaction' : 'Transactions'}`;
 
         summaryCreditVal.textContent = `₹${formatINR(totalCredit)}`;
         summaryCreditCount.textContent = `${creditCount} credit ${creditCount === 1 ? 'entry' : 'entries'}`;
@@ -903,48 +996,66 @@
 
         Array.from(groups.values()).forEach((cust) => {
           const net = cust.credit - cust.debit;
+          const isDue = net < 0;
+          const dueAmount = Math.abs(net);
           const row = document.createElement('div');
           row.className =
-            'theme-subtle border rounded-2xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3';
+            'theme-subtle border rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-indigo-500/50 transition';
+
+          const settleBtnHtml = isDue
+            ? `<button type="button" data-settle-cust-name="${escapeHtml(cust.customerName)}" data-settle-cust-phone="${escapeHtml(cust.phone)}" data-settle-amount="${dueAmount}" class="px-2.5 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-500 transition" title="Record Credit entry to settle pending Udhaar">
+                Settle ₹${formatINR(dueAmount)}
+              </button>`
+            : `<span class="px-2 py-1 rounded-lg bg-emerald-500/10 text-emerald-500 text-[11px] font-bold">✓ Settled</span>`;
 
           row.innerHTML = `
-            <div>
-              <div class="flex items-center gap-2">
-                <span class="font-bold text-sm">${escapeHtml(cust.customerName)}</span>
+            <div class="space-y-1">
+              <div class="flex items-center flex-wrap gap-2">
+                <span class="font-bold text-sm sm:text-base">${escapeHtml(cust.customerName)}</span>
                 <span class="text-xs font-mono-calc px-2 py-0.5 rounded-md theme-panel border">📞 ${escapeHtml(cust.phone)}</span>
-                <span class="text-[11px] theme-muted">${cust.txCount} ${cust.txCount === 1 ? 'entry' : 'entries'}</span>
+                <span class="text-[11px] px-2 py-0.5 rounded-full theme-panel border theme-muted">${cust.txCount} ${cust.txCount === 1 ? 'bill' : 'bills'}</span>
+                <span class="text-[11px] theme-muted">Last: ${escapeHtml(cust.lastSeen)}</span>
               </div>
-              <div class="mt-1.5 flex items-center gap-3 text-xs font-mono-calc">
-                <span class="text-emerald-500 font-semibold">Credit: +₹${formatINR(cust.credit)}</span>
-                <span class="text-rose-500 font-semibold">Debit: −₹${formatINR(cust.debit)}</span>
+              <div class="flex items-center flex-wrap gap-3 text-xs font-mono-calc pt-0.5">
+                <span class="text-emerald-500 font-semibold">Total Paid (Credit): +₹${formatINR(cust.credit)}</span>
+                <span class="text-rose-500 font-semibold">Total Udhaar (Debit): −₹${formatINR(cust.debit)}</span>
               </div>
             </div>
-            <div class="flex items-center gap-2.5">
-              <div class="text-right">
-                <div class="text-[10px] uppercase font-bold theme-muted">Net Customer Balance</div>
-                <div class="font-mono-calc text-base font-extrabold ${net >= 0 ? 'text-emerald-500' : 'text-rose-500'}">
+            <div class="flex flex-wrap items-center justify-between sm:justify-end gap-2.5 border-t sm:border-t-0 pt-2.5 sm:pt-0" style="border-color: var(--border-color);">
+              <div class="text-left sm:text-right mr-1">
+                <div class="text-[10px] uppercase font-bold theme-muted">${isDue ? 'Udhaar Due (Receivable)' : 'Net Customer Balance'}</div>
+                <div class="font-mono-calc text-base sm:text-lg font-extrabold ${net >= 0 ? 'text-emerald-500' : 'text-rose-500'}">
                   ${net >= 0 ? '+' : '−'} ₹${formatINR(Math.abs(net))}
                 </div>
               </div>
-              <button type="button" data-select-cust-name="${escapeHtml(cust.customerName)}" data-select-cust-phone="${escapeHtml(cust.phone)}" class="px-2.5 py-1.5 rounded-xl bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-500 transition">
-                Bill Customer
-              </button>
+              <div class="flex items-center flex-wrap gap-1.5">
+                ${settleBtnHtml}
+                <button type="button" data-view-cust-ledger="${escapeHtml(cust.phone !== '—' ? cust.phone : cust.customerName)}" class="px-2.5 py-1.5 rounded-xl theme-panel border text-xs font-semibold hover:border-indigo-500 transition">
+                  Transactions
+                </button>
+                <button type="button" data-select-cust-name="${escapeHtml(cust.customerName)}" data-select-cust-phone="${escapeHtml(cust.phone)}" class="px-2.5 py-1.5 rounded-xl bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-500 transition">
+                  Bill Customer
+                </button>
+              </div>
             </div>
           `;
           historyListContainer.appendChild(row);
         });
       }
 
-      // --- RECEIPT MODAL (WITH DYNAMIC USER SHOP NAME) ---
+      // --- RECEIPT MODAL (WITH DYNAMIC USER SHOP NAME & SHOP LOCATION/PHONE) ---
       function openReceiptModal(txId) {
         const tx = state.transactions.find((t) => t.id === txId);
         if (!tx) return;
+        state.currentReceiptTxId = tx.id;
         const shopHeader = (state.shopName || 'SMART LEDGER POS').trim().toUpperCase();
         const padLen = Math.max(0, Math.floor((36 - shopHeader.length) / 2));
         const centeredShop = ' '.repeat(padLen) + shopHeader;
+        const addrLine = (state.shopAddress || '').trim();
         const lines = [
           '====================================',
           centeredShop,
+          ...(addrLine ? ['   ' + addrLine] : []),
           '         OFFICIAL POS RECEIPT       ',
           '====================================',
           `Shop Name  : ${state.shopName || 'Smart Ledger POS'}`,
@@ -1095,11 +1206,44 @@
         recordCreditBtn.addEventListener('click', () => recordTransaction('CREDIT'));
         recordDebitBtn.addEventListener('click', () => recordTransaction('DEBIT'));
 
-        // Shop Name input live listener
+        // Shop Name & Address input live listeners
         shopNameInput.addEventListener('input', () => {
           state.shopName = shopNameInput.value;
           saveShopNameToStorage();
           syncShopNameUI();
+        });
+
+        if (shopAddressInput) {
+          shopAddressInput.addEventListener('input', () => {
+            state.shopAddress = shopAddressInput.value;
+            saveShopNameToStorage();
+          });
+        }
+
+        if (viewSelectedCustomerHistoryBtn) {
+          viewSelectedCustomerHistoryBtn.addEventListener('click', () => {
+            const cPhone = customerPhoneInput.value.trim();
+            const cName = customerNameInput.value.trim();
+            if (cPhone || cName) {
+              state.searchQuery = cPhone || cName;
+              historySearchInput.value = state.searchQuery;
+            }
+            switchPage('HISTORY', 'CUSTOMERS');
+          });
+        }
+
+        // Date / Pending Khata filter pills
+        document.querySelectorAll('.date-filter-btn').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            state.filterDate = btn.getAttribute('data-filter-date');
+            document.querySelectorAll('.date-filter-btn').forEach((b) => {
+              const active = b.getAttribute('data-filter-date') === state.filterDate;
+              b.className = active
+                ? 'date-filter-btn px-2.5 py-1 rounded-lg bg-indigo-600 text-white'
+                : 'date-filter-btn px-2.5 py-1 rounded-lg theme-muted';
+            });
+            renderRightPanel();
+          });
         });
 
         // Top Menu Page Navigation listeners
@@ -1201,6 +1345,55 @@
             return;
           }
 
+          const settleBtn = e.target.closest('[data-settle-cust-name]');
+          if (settleBtn) {
+            const cName = settleBtn.getAttribute('data-settle-cust-name');
+            const cPhone = settleBtn.getAttribute('data-settle-cust-phone');
+            const dueAmt = Number(settleBtn.getAttribute('data-settle-amount')) || 0;
+            if (dueAmt > 0) {
+              const now = new Date();
+              const timestamp = now.toLocaleDateString('en-IN', {
+                year: 'numeric',
+                month: 'short',
+                day: '2-digit'
+              }) + ' ' + now.toLocaleTimeString('en-IN', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true
+              });
+              const settlementTx = {
+                id: 'tx-' + Date.now(),
+                customerName: cName,
+                phone: cPhone,
+                type: 'CREDIT',
+                paymentMode: state.paymentMode,
+                amount: dueAmt,
+                expression: String(dueAmt),
+                itemCount: 1,
+                note: 'Udhaar Full Settlement',
+                timestamp
+              };
+              state.transactions.unshift(settlementTx);
+              saveTransactionsToStorage();
+              renderRecentCustomerPills();
+              renderRightPanel();
+              updateLeftCustomerKhataPreview();
+              playTone(820, 0.09, 'sine');
+              showToast(`Settled ₹${formatINR(dueAmt)} Udhaar for ${cName} via ${state.paymentMode}`, 'credit');
+            }
+            return;
+          }
+
+          const viewCustLedgerBtn = e.target.closest('[data-view-cust-ledger]');
+          if (viewCustLedgerBtn) {
+            const query = viewCustLedgerBtn.getAttribute('data-view-cust-ledger');
+            state.searchQuery = query;
+            historySearchInput.value = query;
+            switchPage('HISTORY', 'FEED');
+            showToast(`Showing all transactions for ${query}`);
+            return;
+          }
+
           const selectCustBtn = e.target.closest('[data-select-cust-name]');
           if (selectCustBtn) {
             const cName = selectCustBtn.getAttribute('data-select-cust-name');
@@ -1252,6 +1445,17 @@
         };
         closeReceiptModalBtn.addEventListener('click', closeReceipt);
         closeReceiptBottomBtn.addEventListener('click', closeReceipt);
+        if (whatsappReceiptBtn) {
+          whatsappReceiptBtn.addEventListener('click', () => {
+            const text = receiptTextContent.textContent;
+            const tx = state.transactions.find((t) => t.id === state.currentReceiptTxId);
+            const digits = tx && tx.phone ? tx.phone.replace(/\D/g, '') : '';
+            const phoneParam = digits.length === 10 ? `91${digits}` : digits;
+            const waUrl = `https://wa.me/${phoneParam}?text=${encodeURIComponent(text)}`;
+            window.open(waUrl, '_blank', 'noopener,noreferrer');
+          });
+        }
+
         copyReceiptBtn.addEventListener('click', () => {
           const text = receiptTextContent.textContent;
           if (navigator.clipboard && navigator.clipboard.writeText) {

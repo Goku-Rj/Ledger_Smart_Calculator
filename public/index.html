@@ -107,33 +107,45 @@
   <!-- MAIN MULTI-PAGE WORKSPACE -->
   <main class="flex-1 max-w-6xl w-full mx-auto p-3 sm:p-5">
 
-    <!-- PAGE 1: POS CALCULATOR & ADD CUSTOMER PAGE -->
-    <section id="pageCalculatorView" class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+    <!-- PAGE 1: POS CALCULATOR & ADD CUSTOMER PAGE (LEFT: SHOP & CUSTOMER, RIGHT: CALCULATOR) -->
+    <section id="pageCalculatorView" class="grid grid-cols-1 sm:grid-cols-12 gap-4 sm:gap-5 items-start">
 
-      <!-- LEFT SIDE OF PAGE 1: SHOP NAME + ADD CUSTOMER DETAILS (5 Cols on LG) -->
-      <div class="lg:col-span-5 flex flex-col gap-4">
+      <!-- LEFT SIDE OF PAGE 1: SHOP NAME FIELDS + CUSTOMER ADDING FIELDS (5 Cols) -->
+      <div class="sm:col-span-5 flex flex-col gap-3.5">
 
-        <!-- Shop Name Card (Reflects on Receipt) -->
+        <!-- Shop Name Card (Left Side - Reflects on Receipt) -->
         <div class="theme-panel border rounded-2xl p-4 shadow-sm">
-          <div class="flex items-center justify-between mb-2">
+          <div class="flex items-center justify-between mb-2.5">
             <div class="flex items-center gap-2">
               <svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
                 <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
                 <polyline points="9 22 9 12 15 12 15 22"></polyline>
               </svg>
-              <h2 class="text-xs font-bold uppercase tracking-wider">Shop / Business Profile</h2>
+              <h2 class="text-xs font-bold uppercase tracking-wider">Shop Details (Left Panel)</h2>
             </div>
-            <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-500">Printed on Receipt</span>
+            <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-500">On Receipt</span>
           </div>
-          <div>
-            <label for="shopNameInput" class="block text-[11px] font-semibold theme-muted mb-1">Your Shop Name</label>
-            <input
-              id="shopNameInput"
-              type="text"
-              placeholder="e.g. Sri Krishna Supermart"
-              autocomplete="off"
-              class="w-full px-3 py-2 rounded-xl border text-sm font-bold theme-subtle focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
+          <div class="space-y-2">
+            <div>
+              <label for="shopNameInput" class="block text-[11px] font-semibold theme-muted mb-1">Shop Name *</label>
+              <input
+                id="shopNameInput"
+                type="text"
+                placeholder="e.g. Chamundeshwari Provision Store"
+                autocomplete="off"
+                class="w-full px-3 py-1.5 rounded-xl border text-sm font-bold theme-subtle focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <div>
+              <label for="shopAddressInput" class="block text-[11px] font-semibold theme-muted mb-1">Shop Phone / Location (Optional)</label>
+              <input
+                id="shopAddressInput"
+                type="text"
+                placeholder="e.g. Mysuru • Ph: 9845000000"
+                autocomplete="off"
+                class="w-full px-3 py-1.5 rounded-xl border text-xs font-medium theme-subtle focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
           </div>
         </div>
 
@@ -238,8 +250,20 @@
         </div>
       </div>
 
-      <!-- RIGHT SIDE OF PAGE 1: CALCULATOR & PAYMENT MODE PAD (7 Cols on LG) -->
-      <div class="lg:col-span-7 calc-container border rounded-2xl p-4 sm:p-5 shadow-md">
+        <!-- Active Customer Khata Standing Mini-Card (Left Side) -->
+        <div id="activeCustomerKhataBox" class="theme-panel border rounded-2xl p-3 shadow-sm flex items-center justify-between gap-2">
+          <div>
+            <div class="text-[10px] font-bold uppercase tracking-wider theme-muted">Selected Customer Khata</div>
+            <div id="leftCustomerKhataText" class="text-xs font-bold mt-0.5">Select or type customer to view balance</div>
+          </div>
+          <button id="viewSelectedCustomerHistoryBtn" type="button" class="px-2.5 py-1 rounded-xl theme-subtle border text-[11px] font-semibold hover:border-indigo-500 transition">
+            View Khata →
+          </button>
+        </div>
+      </div>
+
+      <!-- RIGHT SIDE OF PAGE 1: CALCULATOR & PAYMENT MODE PAD (7 Cols) -->
+      <div class="sm:col-span-7 calc-container border rounded-2xl p-4 sm:p-5 shadow-md">
 
         <!-- Digital Calculator Readout Screen -->
         <div id="calcDisplayBox" class="calc-display rounded-2xl p-3.5 mb-3.5 relative overflow-hidden">
@@ -470,8 +494,35 @@
           </div>
         </div>
 
-        <!-- Search & Filter Bar -->
-        <div class="py-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 border-b" style="border-color: var(--border-color);">
+        <!-- Collection Mode Breakdown Progress Bar -->
+        <div class="mb-3 p-3 rounded-xl theme-subtle border">
+          <div class="flex items-center justify-between text-[11px] font-bold mb-1.5">
+            <span class="uppercase tracking-wider theme-muted">Collection Split by Payment Mode</span>
+            <span id="modeSplitPercentText" class="font-mono-calc text-indigo-500">UPI 0% • Cash 0% • Card 0%</span>
+          </div>
+          <div class="w-full h-2.5 rounded-full bg-slate-500/15 overflow-hidden flex">
+            <div id="barUpiWidth" class="h-full bg-violet-500 transition-all duration-300" style="width: 34%;"></div>
+            <div id="barCashWidth" class="h-full bg-amber-500 transition-all duration-300" style="width: 33%;"></div>
+            <div id="barCardWidth" class="h-full bg-sky-500 transition-all duration-300" style="width: 33%;"></div>
+          </div>
+        </div>
+
+        <!-- Search & Filter Bar (With Date Period Filter + Type + Payment Mode) -->
+        <div class="py-3 flex flex-col gap-2.5 border-b" style="border-color: var(--border-color);">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <span class="text-[11px] font-bold uppercase tracking-wider theme-muted">Period:</span>
+              <div class="theme-subtle border rounded-xl p-0.5 flex items-center text-[11px] font-semibold">
+                <button type="button" data-filter-date="ALL" class="date-filter-btn px-2.5 py-1 rounded-lg bg-indigo-600 text-white">All Time</button>
+                <button type="button" data-filter-date="TODAY" class="date-filter-btn px-2.5 py-1 rounded-lg theme-muted">Today</button>
+                <button type="button" data-filter-date="PENDING_KHATA" class="date-filter-btn px-2.5 py-1 rounded-lg theme-muted">Pending Udhaar Only</button>
+              </div>
+            </div>
+            <div class="text-[11px] font-semibold theme-muted" id="khataDirectorySummaryHint">
+              Showing all customer records
+            </div>
+          </div>
+          <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
           <!-- Search Box -->
           <div class="relative flex-1">
             <span class="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none theme-muted">
@@ -508,6 +559,7 @@
               <button type="button" data-filter-pay="Card" class="pay-filter-btn px-2 py-1 rounded-lg theme-muted">Card</button>
             </div>
           </div>
+          </div>
         </div>
 
         <!-- Scrollable Purchase History List -->
@@ -535,7 +587,10 @@
         </button>
       </div>
       <pre id="receiptTextContent" class="mt-3 p-3.5 rounded-xl theme-subtle border font-mono-calc text-xs whitespace-pre-wrap leading-relaxed overflow-x-auto"></pre>
-      <div class="mt-4 flex items-center justify-end gap-2">
+      <div class="mt-4 flex flex-wrap items-center justify-end gap-2">
+        <button id="whatsappReceiptBtn" type="button" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-500 transition">
+          Share on WhatsApp
+        </button>
         <button id="copyReceiptBtn" type="button" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-500 transition">
           Copy Receipt Text
         </button>
